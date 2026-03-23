@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Consulta Geolocalización OSM</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<h2>Consulta de Geolocalización — OpenStreetMap</h2>
+
+<fieldset>
+    <legend>Origen</legend>
+    Lat: <input id="oLat" value="-16.414005"/>
+    Lon: <input id="oLon" value="-71.515773"/>
+    <p id="dirOrigen"></p>
+</fieldset>
+
+<fieldset>
+    <legend>Destino</legend>
+    Lat: <input id="dLat" value="-16.406547"/>
+    Lon: <input id="dLon" value="-71.553179"/>
+    <p id="dirDestino"></p>
+</fieldset>
+
+<button onclick="consultar()">Consultar</button>
+<p>Distancia: <span id="dist"></span> km</p>
+<p>Tiempo estimado: <span id="tiempo"></span> min</p>
+<p style="font-size:0.8em;color:#888">
+    Datos © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>
+</p>
+<script>
+    async function consultar() {
+        const [oLat, oLon, dLat, dLon] = [
+        v('oLat'), v('oLon'), v('dLat'), v('dLon')
+    ];
+    // Geocodificación inversa de origen y destino
+    const gO = await api(`/api/geocode?lat=${oLat}&lon=${oLon}`);
+    const gD = await api(`/api/geocode?lat=${dLat}&lon=${dLon}`);
+    set('dirOrigen', gO.direccion);
+    set('dirDestino', gD.direccion);
+    // Ruta
+    const r = await api(
+        `/api/ruta?oLat=${oLat}&oLon=${oLon}&dLat=${dLat}&dLon=${dLon}`
+    );
+    set('dist', r.distancia_km);
+    set('tiempo', r.duracion_min);
+    }
+    const api = url => fetch(url).then(r => r.json());
+    const v = id => document.getElementById(id).value;
+    const set = (id, val) => document.getElementById(id).textContent = val;
+</script>
+</body>
+</html>
