@@ -1,15 +1,21 @@
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import initSqlJs from 'sql.js';
+import fs from 'fs';
 
 let db;
+let SQL;
+const DB_FILE = './database.sqlite';
 
 export async function initDB() {
-    db = await open({
-        filename: './database.db',
-        driver: sqlite3.Database
-    });
+    SQL = await initSqlJs();
 
-    await db.exec(`
+    if (fs.existsSync(DB_FILE)) {
+        const data = fs.readFileSync(DB_FILE);
+        db = new SQL.Database(data);
+    } else {
+        db = new SQL.Database();
+    }
+
+    db.run(`
         CREATE TABLE IF NOT EXISTS historial (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             origen_lat REAL,
@@ -18,28 +24,37 @@ export async function initDB() {
             destino_lon REAL,
             distancia REAL,
             duracion REAL,
-            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            fecha TEXT DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
-    console.log('DB lista');
+    guardarArchivo();
+    console.log("DB lista (sql.js)");
 }
 
-// ── Guardar historial ──
-export async function guardarHistorial(data) {
-    const { oLat, oLon, dLat, dLon, distancia, duracion } = data;
+function guardarArchivo() {
+    const data = db.export();
+    fs.writeFileSync(DB_FILE, Buffer.from(data));
+}
 
-    await db.run(`
-        INSERT INTO historial 
+export async function guardarHistorial({ oLat, oLon, dLat, dLon, distancia, duracion }) {
+    db.run(
+        `INSERT INTO historial 
         (origen_lat, origen_lon, destino_lat, destino_lon, distancia, duracion)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `, [oLat, oLon, dLat, dLon, distancia, duracion]);
+        VALUES (?, ?, ?, ?, ?, ?)`,
+        [oLat, oLon, dLat, dLon, distancia, duracion]
+    );
+    guardarArchivo();
 }
 
-// ── Obtener historial ──
 export async function obtenerHistorial() {
-    return await db.all(`
-        SELECT * FROM historial
-        ORDER BY fecha DESC
-    `);
+    const res = db.exec(`SELECT * FROM historial ORDER BY fecha DESC`);
+
+    if (!res.length) return [];
+
+    const cols = res[0].columns;
+
+    return res[0].values.map(row =>
+        Object.fromEntries(row.map((v, i) => [cols[i], v]))
+    );
 }
